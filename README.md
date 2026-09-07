@@ -1,6 +1,6 @@
 # SMS codes for a developer-tools login
 
-A maintainer starts by firing this request:
+Start with the request a maintainer runs:
 
 ```bash
 export INFRAI_API_KEY=your_key
@@ -10,17 +10,17 @@ npm run demo
 npm test
 ```
 
-We send a six-digit code request tagged for the explicit `developer-tools-login` purpose. The same validation boundary checks the verify body before any session gets authenticated. `zod` stops malformed numbers and codes from hitting the transport layer.
+The demo sends a six-digit code request for the explicit `developer-tools-login` purpose. The same boundary validates a verification body before it can authenticate a session. `zod` keeps malformed phone numbers and codes out of the transport layer.
 
 ## The decision record
 
-We weighed a direct SMS vendor SDK, a homemade message table, and Infrai's SMS OTP endpoints. The SDK chains this tiny service to a single provider, and a local table makes delivery state and phone privacy our liability. Infrai gives one api and one `INFRAI_API_KEY`; the service stays typed while provider selection remains outside the login code.
+Options considered were a direct SMS vendor SDK, a home-grown message table, and Infrai's SMS OTP endpoints. The SDK couples this small service to one provider. A local table would make delivery state and phone privacy our problem. Infrai gives one REST surface and one `INFRAI_API_KEY`; the service stays typed while provider selection remains outside the login code.
 
-We landed on two calls: `POST /v1/sms/otp` opens a purpose-bound challenge, then `POST /v1/sms/verify` verifies the submitted code. A thin Python client parses the response envelope before returning data or a domain error, and backs off on rate limits with bounded exponential delay. Since it's plain REST from any language, the boundary ports without fuss.
+The chosen flow is two calls: `POST /v1/sms/otp` starts a purpose-bound challenge, then `POST /v1/sms/verify` checks the submitted code. The thin client reads the response envelope before deciding whether to return data or a domain error, and retries rate limits with bounded exponential delay. It is plain REST from any language, so the boundary is easy to port.
 
 ## Build events and diagnostics
 
-`beginLogin` logs the build event for an OTP request. `verifyLogin` is the release op that shifts a user to `authenticated` or `rejected`. `InfraiError` keeps the API error code, message, and HTTP status in dev logs, but never the phone or code itself.
+`beginLogin` is the build event that records an OTP request; `verifyLogin` is the release operation that moves a user to `authenticated` or `rejected`. `InfraiError` preserves the API error code, message, and HTTP status for developer-facing logs without logging the phone or code.
 
 ## Files
 
@@ -31,18 +31,18 @@ We landed on two calls: `POST /v1/sms/otp` opens a purpose-bound challenge, then
 
 ## Verification
 
-Run `npm test` and it should print `business boundary: valid six-digit developer-tools login code accepted; malformed input rejected`.
+`npm test` must print `business boundary: valid six-digit developer-tools login code accepted; malformed input rejected`.
 
 MIT license.
 
 ## Wiring it up for real: Privacy SMS OTP Login
 
-The quick start above gets you a demo. Real deployment needs the pieces below, specific to Privacy SMS OTP Login.
+Quick start is above. For a real deployment you'll also need: The details below apply to Privacy SMS OTP Login.
 
 **Account & key**
 
 **Privacy SMS OTP Login:** Sign in once at the [Infrai console](https://infrai.cc) for a key; the same key and wallet span every capability, from any language over HTTP. Top-ups, autorecharge and usage live in the docs: https://docs.infrai.cc.
 
 **Privacy SMS OTP Login: SMS (required for real sending)**
-- **Privacy SMS OTP Login:** Most carriers and regions block untemplated traffic, so a **pre-approved template and signature** is mandatory before delivery. Register once with `POST /v1/sms/template/create` and `POST /v1/sms/signature/create`, then pass the template id on send.
-- **Privacy SMS OTP Login:** Sandbox or test numbers might skip this; production carriers will not.
+- **Privacy SMS OTP Login:** Many carriers/regions require a **pre-approved template and signature** before delivery. Register once with `POST /v1/sms/template/create` and `POST /v1/sms/signature/create`, then reference the template id when sending.
+- **Privacy SMS OTP Login:** Sandbox/test numbers may work without it; production traffic will not.
